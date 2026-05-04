@@ -417,7 +417,6 @@ tr:hover .col-frozen-left,tr:hover .col-frozen-right{background:#f5f3ee;}
     const apiFn = typeof apiFetch==='function' ? apiFetch
       : async(url)=>{
           const proxies=[u=>u,
-            u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
             u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`];
           for(const p of proxies){
             try{const r=await fetch(p(url),{signal:AbortSignal.timeout(7000)});if(r.ok)return r.json();}catch(e){}
@@ -1361,7 +1360,6 @@ let selectedNbaTeamName = 'Celtics';
 const BOS_ID = 111;
 const PROXIES = [
   u => u,
-  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
   u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
@@ -3585,7 +3583,6 @@ async function fetchAndInjectMlbLive() {
     // Try direct first (no cache), then proxies
     const proxies = [
       u => u,
-      u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
       u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
     ];
     for (const p of proxies) {
