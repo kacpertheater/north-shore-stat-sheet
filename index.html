@@ -1397,7 +1397,8 @@ async function apiFetch(url) {
       if (r.ok) {
         const data = await r.json();
         _cache.set(url, data);
-        setTimeout(() => _cache.delete(url), 5 * 60 * 1000);
+        const ttl = url.includes('standings') ? 10 * 60 * 1000 : 5 * 60 * 1000;
+        setTimeout(() => _cache.delete(url), ttl);
         return data;
       }
       lastErr = new Error(`HTTP ${r.status}`);
@@ -1514,13 +1515,12 @@ async function getHitters(gameType, days) {
 // ── Team selection ─────────────────────────────────────────────────────────
 
 function applyMlbTeamTheme(abbr, name) {
-  document.querySelectorAll('.mlb-team-sel').forEach(el => { el.value = String(selectedMlbTeamId); });
-  document.querySelectorAll('#mlb-team-badge').forEach(el => { el.textContent = name; });
+  document.querySelectorAll('.mlb-team-sel').forEach(el => el.value = String(selectedMlbTeamId));
+  document.querySelectorAll('#mlb-team-badge').forEach(el => el.textContent = name);
 }
-
 function applyNbaTeamTheme(abbr, name) {
-  document.querySelectorAll('.nba-team-sel').forEach(el => { el.value = String(selectedNbaTeamId); });
-  document.querySelectorAll('#nba-team-badge').forEach(el => { el.textContent = name; });
+  document.querySelectorAll('.nba-team-sel').forEach(el => el.value = String(selectedNbaTeamId));
+  document.querySelectorAll('#nba-team-badge').forEach(el => el.textContent = name);
 }
 
 
@@ -4813,7 +4813,7 @@ async function loadMlbStandings(asOfDate) {
   try {
     // Try regularSeason first; if 0 records returned, try springTraining
     let data = await apiFetch(
-      `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason&hydrate=team(division)${dateParam}`
+      `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason&hydrate=team(division),record(overallRecords,splitRecords)${dateParam}`
     );
     let records = data.records || [];
     let standingType = 'Regular Season';
@@ -4821,13 +4821,11 @@ async function loadMlbStandings(asOfDate) {
     if (!records.length || records.every(r => !r.teamRecords?.length)) {
       msgEl.textContent = `No regular season data yet — trying spring training…`;
       data = await apiFetch(
-        `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=springTraining&hydrate=team(division)${dateParam}`
+        `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=springTraining&hydrate=team(division),record(overallRecords,splitRecords)${dateParam}`
       );
       records = data.records || [];
       standingType = 'Spring Training';
     }
-
-    console.log('[MLB Standings] records count:', records.length, 'type:', standingType, 'date:', asOfDate || 'current');
 
     const rows = [];
     for (const rec of records) {
@@ -4836,12 +4834,19 @@ async function loadMlbStandings(asOfDate) {
       const divName = divInfo?.name || rec.division?.name || 'Unknown';
       const league  = divInfo?.league || (rec.league?.id === 103 ? 'AL' : rec.league?.id === 104 ? 'NL' : '?');
 
-      console.log('[MLB Standings] division:', divId, divName, 'league:', league, 'teams:', rec.teamRecords?.length);
-
       for (const tr of (rec.teamRecords || [])) {
         const team = tr.team || {};
         const ovr  = tr.records?.overallRecords || [];
-        const get  = type => { const r = ovr.find(r=>r.type===type); return r ? `${r.wins}-${r.losses}` : '-'; };
+        const splits = tr.records?.splitRecords || [];
+        const allRecs = [...ovr, ...splits];
+        const get  = type => { const r = allRecs.find(r=>r.type===type); return r ? `${r.wins}-${r.losses}` : '-'; };
+        const getLast10 = () => {
+          const r = allRecs.find(r => r.type === 'lastTen')
+                 || allRecs.find(r => r.type === 'last')
+                 || allRecs.find(r => r.type === 'last10')
+                 || allRecs.find(r => r.type?.toLowerCase().includes('last'));
+          return r ? `${r.wins}-${r.losses}` : '-';
+        };
         rows.push({
           league,
           division: divName,
@@ -4856,7 +4861,7 @@ async function loadMlbStandings(asOfDate) {
           wcGb:     tr.wildCardGamesBack === '-' ? 0 : parseFloat(tr.wildCardGamesBack) || 0,
           home:     get('home'),
           away:     get('away'),
-          last10:   get('lastTen'),
+          last10:   getLast10(),
           streak:   tr.streak?.streakCode || '',
           runsScored:   tr.runsScored ?? null,
           runsAllowed:  tr.runsAllowed ?? null,
@@ -4867,8 +4872,6 @@ async function loadMlbStandings(asOfDate) {
         });
       }
     }
-
-    console.log('[MLB Standings] total rows parsed:', rows.length);
     mlbStdData = rows;
     statusEl.style.display = 'none';
     renderMlbStandings();
