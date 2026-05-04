@@ -1576,7 +1576,7 @@ function goToNbaTeam(espnId, abbr, name, conf) {
     setNbaStdConf(conf, confBtn||null);
   }
   document.querySelectorAll('.tab').forEach(t => {
-    if (t.getAttribute('onclick')?.includes("'basketball-trends'")) t.click();
+    if (t.getAttribute('onclick')?.includes("'hoopers'")) t.click();
   });
 }
 
@@ -1592,7 +1592,7 @@ function goToMlbTeam(teamId, abbr, name, league) {
     setMlbStdLeague(league, lgBtn||null);
   }
   document.querySelectorAll('.tab').forEach(t => {
-    if (t.getAttribute('onclick')?.includes("'baseball-trends'")) t.click();
+    if (t.getAttribute('onclick')?.includes("'sluggers'")) t.click();
   });
 }
 
