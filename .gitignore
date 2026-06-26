@@ -8,3 +8,9 @@
 
 # OS / editor cruft
 .DS_Store
+
+# Cowork push credentials (deploy key) — never commit
+/.cowork/
+
+# temp token hand-off file (read then deleted)
+/cowork-token.txt
