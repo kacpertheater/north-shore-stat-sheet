@@ -3,5 +3,8 @@
 /Sports/
 /.claude/
 
+# Personal keepsakes — kept locally, never published
+/keepsakes/
+
 # OS / editor cruft
 .DS_Store
