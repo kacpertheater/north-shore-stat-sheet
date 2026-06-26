@@ -1,0 +1,7 @@
+# Cowork / Claude working folders (repo-root only — leading slash avoids
+# accidentally matching js/sports/)
+/Sports/
+/.claude/
+
+# OS / editor cruft
+.DS_Store
