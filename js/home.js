@@ -76,7 +76,7 @@
 
     Promise.all([
       apiFn(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=111&startDate=${sub(today,7)}&endDate=${add(today,14)}&gameType=R&hydrate=team,linescore`).catch(()=>null),
-      apiFn(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${selectedNbaTeamId}/schedule?season=2026`).catch(()=>null),
+      apiFn(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${selectedNbaTeamId}/schedule`).catch(()=>null),
     ]).then(([mlb,nba])=>{
       /* MLB */
       if(mlb){

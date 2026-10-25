@@ -31,21 +31,13 @@ const NBA_ADV_COLS = [
 ];
 
 async function fetchNBAStats(season, seasonType) {
-  // nbaapi.com — free, no key, covers player totals + advanced
-  // season param = year season ends, e.g. "2024-25" → 2025
+  // ESPN team player stats — per-game averages, CORS-enabled, no key
+  // season param = year season ends, e.g. "2024-25" → 2025; seasontype 2=regular, 3=playoffs
   const yr = parseInt(season.split('-')[0]) + 1;
-  const isPlayoff = seasonType === 'Playoffs';
-
-  const url = `https://api.server.nbaapi.com/api/playertotals?team=${selectedNbaTeamAbbr}&season=${yr}&isPlayoff=${isPlayoff}&page=1&pageSize=30&sortBy=points&ascending=false`;
-  let lastErr;
-  for (const proxy of PROXIES) {
-    try {
-      const r = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
-      if (r.ok) return r.json();
-      lastErr = new Error(`HTTP ${r.status}`);
-    } catch(e) { lastErr = e; }
-  }
-  throw lastErr || new Error('Could not reach nbaapi.com');
+  const type = seasonType === 'Playoffs' ? 3 : 2;
+  const url = `https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${selectedNbaTeamId}/athletes/statistics?season=${yr}&seasontype=${type}`;
+  const data = await apiFetch(url);
+  return data?.results?.[0]?.leaders || [];
 }
 
 function setNbaSeason(type, el) {
@@ -63,38 +55,40 @@ async function loadHoopers() {
   document.getElementById('hoopers-tbl-wrap').style.display = 'none';
 
   try {
-    const data = await fetchNBAStats(season, nbaSeasonType);
-    const rows = data?.data || [];
-    if (!rows.length) throw new Error('No player data found for this season — nbaapi.com may not have this data yet.');
+    const rows = await fetchNBAStats(season, nbaSeasonType);
+    if (!rows.length) throw new Error('No player data found for this season yet.');
 
-    // nbaapi.com fields: playerName, games, minutesPlayed, points, assists,
-    // totalRb, steals, blocks, turnovers, fgPercent, threePointPercent,
-    // ftPercent, offensiveRb, defensiveRb, personalFouls, fieldGoalAttempts,
-    // fieldGoals, threePointAttempts, threePointers, freethrows, freethrowAttempts
-    // Convert to per-game
+    // ESPN groups each player's stats into general/offensive/defensive lists
+    // of {name, value}; flatten them, then map to our column keys.
+    // ESPN percentages are 0–100; the table expects 0–1.
     hooperData = rows.map(p => {
-      const g = p.games || 1;
-      const pg = v => v != null ? +(v/g).toFixed(1) : null;
+      const s = {};
+      for (const cat of (p.statistics || [])) for (const st of (cat.stats || [])) s[st.name] = st.value;
+      const r1  = v => v != null ? +v.toFixed(1) : null;
+      // ESPN reports 0% when a player has no attempts — show those as blank
+      const pct = (v, att) => v != null && att ? +(v / 100).toFixed(3) : null;
       return {
-        PLAYER_NAME: p.playerName,
-        GP: p.games,
-        MIN: pg(p.minutesPg),
-        PTS: pg(p.points),
-        REB: pg(p.totalRb),
-        AST: pg(p.assists),
-        STL: pg(p.steals),
-        BLK: pg(p.blocks),
-        TOV: pg(p.turnovers),
-        FG_PCT:  p.fieldPercent ?? null,
-        FG3_PCT: p.threePercent ?? null,
-        FT_PCT:  p.ftPercent ?? null,
-        FGM:  pg(p.fieldGoals),
-        FGA:  pg(p.fieldAttempts),
-        FG3M: pg(p.threeFg),
-        FG3A: pg(p.threeAttempts),
-        OREB: pg(p.offensiveRb),
-        DREB: pg(p.defensiveRb),
-        PF:   pg(p.personalFouls),
+        PLAYER_NAME: p.athlete?.displayName || '?',
+        GP:  s.gamesPlayed ?? null,
+        MIN: r1(s.avgMinutes),
+        PTS: r1(s.avgPoints),
+        REB: r1(s.avgRebounds),
+        AST: r1(s.avgAssists),
+        STL: r1(s.avgSteals),
+        BLK: r1(s.avgBlocks),
+        TOV: r1(s.avgTurnovers),
+        FG_PCT:  pct(s.fieldGoalPct, s.avgFieldGoalsAttempted),
+        FG3_PCT: pct(s.threePointFieldGoalPct, s.avgThreePointFieldGoalsAttempted),
+        FT_PCT:  pct(s.freeThrowPct, s.avgFreeThrowsAttempted),
+        FTM:  r1(s.avgFreeThrowsMade),
+        FTA:  r1(s.avgFreeThrowsAttempted),
+        FGM:  r1(s.avgFieldGoalsMade),
+        FGA:  r1(s.avgFieldGoalsAttempted),
+        FG3M: r1(s.avgThreePointFieldGoalsMade),
+        FG3A: r1(s.avgThreePointFieldGoalsAttempted),
+        OREB: r1(s.avgOffensiveRebounds),
+        DREB: r1(s.avgDefensiveRebounds),
+        PF:   r1(s.avgFouls),
       };
     });
 
@@ -104,7 +98,7 @@ async function loadHoopers() {
     renderHoopers();
     const isCurrent = season === currentNBASeason();
     document.getElementById('hoopers-src-note').textContent =
-      `${hooperData.length} players · ${season} ${nbaSeasonType} · nbaapi.com (per game)${isCurrent ? ' · auto-refreshes every 5 min' : ''}`;
+      `${hooperData.length} players · ${season} ${nbaSeasonType} · ESPN (per game)${isCurrent ? ' · auto-refreshes every 5 min' : ''}`;
 
     // Auto-refresh if showing current season
     clearInterval(window._hoopersTimer);
@@ -142,10 +136,9 @@ function renderHooperCards() {
   const total3FM = d.reduce((s,p) => s + ((p.FG3M||0) * (p.GP||0)), 0);
   const total3FA = d.reduce((s,p) => s + ((p.FG3A||0) * (p.GP||0)), 0);
 
-  const ftPlayers = d.filter(p => p.FT_PCT != null && p.GP > 0);
-  const teamFTPct = ftPlayers.length
-    ? (ftPlayers.reduce((s,p) => s + (p.FT_PCT * p.GP), 0) / ftPlayers.reduce((s,p) => s + p.GP, 0) * 100).toFixed(1)
-    : '—';
+  const totalFTM = d.reduce((s,p) => s + ((p.FTM||0) * (p.GP||0)), 0);
+  const totalFTA = d.reduce((s,p) => s + ((p.FTA||0) * (p.GP||0)), 0);
+  const teamFTPct = totalFTA > 0 ? (totalFTM / totalFTA * 100).toFixed(1) : '—';
 
   const ppg = (totalPts / teamGames).toFixed(1);
   const rpg = (totalReb / teamGames).toFixed(1);

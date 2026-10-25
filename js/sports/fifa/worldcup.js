@@ -137,7 +137,7 @@ async function loadWCLive(force){
     const bust = force ? `&_=${Date.now()}` : '';
     const [stand, sched] = await Promise.all([
       apiFetch(`${WC_ESPN_STANDINGS}?season=${wcYear}${bust}`).catch(()=>null),
-      apiFetch(`${WC_ESPN_BASE}/scoreboard?dates=${d.start}-${d.end}&limit=200${bust}`).catch(()=>null),
+      fetchWCScoreboard(d.start, d.end, bust),
     ]);
     wcLive.groups = parseWCStandings(stand);
     wcLive.teamGroup = {};
@@ -153,6 +153,22 @@ async function loadWCLive(force){
   }
 }
 function refreshWCLive(){ loadWCLive(true); renderWC(); }
+
+// ESPN rejects date-range scoreboard queries (HTTP 400), so request one day
+// at a time and merge the events (deduped by id).
+async function fetchWCScoreboard(start, end, bust){
+  const days=[];
+  const toD=s=>new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
+  for(let d=toD(start); d<=toD(end); d.setDate(d.getDate()+1)){
+    days.push(`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`);
+  }
+  const perDay = await Promise.all(days.map(day=>
+    apiFetch(`${WC_ESPN_BASE}/scoreboard?dates=${day}${bust}`).catch(()=>null)));
+  const byId = new Map();
+  for(const res of perDay) for(const ev of (res?.events||[])) byId.set(ev.id, ev);
+  if(!byId.size) return null;
+  return { events: [...byId.values()].sort((a,b)=>new Date(a.date)-new Date(b.date)) };
+}
 
 function parseWCStandings(data){
   const out=[];

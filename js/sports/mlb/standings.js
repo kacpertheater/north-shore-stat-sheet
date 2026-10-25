@@ -71,8 +71,19 @@ async function loadMlbStandings(asOfDate) {
     );
     let records = data.records || [];
     let standingType = 'Regular Season';
+    const isEmpty = recs => !recs.length || recs.every(r => !r.teamRecords?.length);
 
-    if (!records.length || records.every(r => !r.teamRecords?.length)) {
+    // The API returns nothing for dates after the regular season ends
+    // (postseason/offseason) — fall back to the season's final standings.
+    if (isEmpty(records) && asOfDate && parseInt(asOfDate.split('-')[1]) >= 9) {
+      data = await apiFetch(
+        `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason&hydrate=team(division),record(overallRecords,splitRecords)`
+      );
+      records = data.records || [];
+      standingType = 'Final Regular Season';
+    }
+
+    if (isEmpty(records)) {
       msgEl.textContent = `No regular season data yet — trying spring training…`;
       data = await apiFetch(
         `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=springTraining&hydrate=team(division),record(overallRecords,splitRecords)${dateParam}`
@@ -80,6 +91,7 @@ async function loadMlbStandings(asOfDate) {
       records = data.records || [];
       standingType = 'Spring Training';
     }
+    if (isEmpty(records)) throw new Error(`no standings available for ${season}${dateLabel}`);
 
     const rows = [];
     for (const rec of records) {
@@ -130,7 +142,7 @@ async function loadMlbStandings(asOfDate) {
     statusEl.style.display = 'none';
     renderMlbStandings();
     document.getElementById('mlb-std-src-note').textContent =
-      `MLB ${season} ${standingType} Standings${dateLabel} · statsapi.mlb.com`;
+      `MLB ${season} ${standingType} Standings${standingType.startsWith('Final') ? '' : dateLabel} · statsapi.mlb.com`;
   } catch(e) {
     console.error('[MLB Standings] error:', e);
     spinEl.style.display = 'none';
