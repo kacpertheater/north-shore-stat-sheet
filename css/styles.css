@@ -257,6 +257,8 @@ tr:hover .col-frozen-left,tr:hover .col-frozen-right{background:#f5f3ee;}
 
 .wc-knockout-bracket{overflow-x:auto;}
 .wc-ko-round{display:flex;flex-direction:column;gap:8px;min-width:180px;}
+.wc-ko-bracket{display:flex;align-items:stretch;gap:12px;overflow-x:auto;padding-bottom:8px;}
+.wc-ko-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:8px;}
 .wc-ko-match{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:10px;}
 .wc-ko-match .team{font-family:var(--display);font-weight:700;font-size:10px;padding:2px 0;}
 .wc-ko-match .team.tbd{color:var(--faint);font-weight:400;}

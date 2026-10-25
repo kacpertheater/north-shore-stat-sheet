@@ -2,11 +2,12 @@
 //  THE VAULT — Historical Season Results
 // ════════════════════════════════════════
 
-// ── Static curated data for NBA/NFL (accurate through 2024-25) ────────────
+// ── Static curated data for NBA/NFL (NBA through 2025-26, NFL through 2024) ─
 // Format: year → { w, l, t(ties/OT losses), pf, pa, playoff }
 // playoff: null = missed, or { result:'champ'|'conf'|'semi'|'round1'|'miss', round, opp }
 const STATIC_DATA = {
   'nba|bos': {
+    2026: { w:56, l:26, pf:114.9, pa:107.2, playoff:{ result:'round1', round:'First Round', opp:'Philadelphia 76ers', detail:'Lost 3–4' } },
     2025: { w:61, l:21, pf:119.8, pa:110.4, playoff:{ result:'out', round:'Eastern Conference Semifinals', opp:'Cleveland Cavaliers', detail:'1–4' } },
     2024: { w:64, l:18, pf:120.6, pa:109.5, playoff:{ result:'champ', round:'NBA Finals', opp:'Dallas Mavericks', detail:'Won 4–1' } },
     2023: { w:57, l:25, pf:117.0, pa:111.5, playoff:{ result:'conf', round:'Eastern Conference Finals', opp:'Miami Heat', detail:'Lost 3–4' } },

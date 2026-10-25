@@ -106,6 +106,7 @@ function wcStageFor(d){
   if(m===7&&day>=19)  return 'Final';
   return null;
 }
+const WC_STAGE_SLUG = {'group-stage':null,'round-of-32':'R32','round-of-16':'R16',quarterfinals:'QF',semifinals:'SF','3rd-place-match':'3RD','final':'Final'};
 const WC_ROUND_LABEL = {R32:'Round of 32',R16:'Round of 16',QF:'Quarterfinal',SF:'Semifinal','3RD':'3rd Place',Final:'⚽ Final'};
 
 function setWCYear(yr,el){
@@ -217,7 +218,9 @@ function parseWCSchedule(data){
       state: st.state||'pre',                 // pre | in | post
       status: st.shortDetail||st.description||'',
       venue: comp.venue?.fullName||'',
-      stage: wcStageFor(dt),                  // null for group stage
+      // ESPN labels the round; the date guess is only a fallback (late kickoffs
+      // roll into the next UTC day and would land in the wrong round)
+      stage: (ev.season?.slug in WC_STAGE_SLUG) ? WC_STAGE_SLUG[ev.season.slug] : wcStageFor(dt), // null for group stage
       home:t(home), away:t(away),
     });
   }
@@ -375,27 +378,46 @@ function renderWCBracketLive(){
   if(!ko.length){
     return html+'<div style="padding:30px;text-align:center;color:var(--muted)">Bracket fills in once the group stage is complete.</div>';
   }
-  html+=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">`;
-  for(const s of order){
-    const matches=byStage[s]; if(!matches||!matches.length) continue;
-    html+=`<div class="wc-ko-round"><div class="ko-stage-hdr">${WC_ROUND_LABEL[s]||s}</div>`;
-    for(const m of matches){
-      const done=m.state==='post';
-      const team=(c)=>{
-        const nm=c.abbr?`${wcFlag(c.abbr)} ${c.abbr}`:'TBD';
-        const sc=done?` <span style="font-family:var(--mono);font-weight:700">${c.score??''}</span>`:'';
-        const win=done&&c.winner?'font-weight:800':(c.abbr?'':'');
-        const foc=wcIsFocus(c.abbr)?';color:var(--navy);font-weight:800':'';
-        return `<div class="team${c.abbr?'':' tbd'}" style="${win}${foc}">${nm}${sc}</div>`;
-      };
-      const koFocus=wcIsFocus(m.home.abbr)||wcIsFocus(m.away.abbr);
-      html+=`<div class="wc-ko-match"${koFocus?' style="outline:2px solid var(--navy);outline-offset:-1px"':''}>${team(m.home)}
-        <div style="font-family:var(--mono);font-size:8px;color:var(--faint);text-align:center;padding:2px 0">${m.state==='in'?'<span style="color:var(--red)">live</span>':'vs'}</div>
-        ${team(m.away)}</div>`;
+  // Order each round so a match sits between the two matches that fed it:
+  // walk back from the Final, pulling the earlier-round match each team came from.
+  const funnel=order.filter(s=>s!=='3RD'&&byStage[s].length);
+  for(let i=funnel.length-2;i>=0;i--){
+    const next=byStage[funnel[i+1]], cur=byStage[funnel[i]], used=new Set(), sorted=[];
+    for(const nm of next) for(const side of [nm.home,nm.away]){
+      const src=side.abbr&&cur.find(m=>!used.has(m)&&(m.home.abbr===side.abbr||m.away.abbr===side.abbr));
+      if(src){ used.add(src); sorted.push(src); }
     }
-    html+=`</div>`;
+    byStage[funnel[i]]=[...sorted,...cur.filter(m=>!used.has(m))];
   }
-  return html+'</div>';
+
+  const koMatch=(m)=>{
+    const done=m.state==='post';
+    const team=(c)=>{
+      const nm=c.abbr?`${wcFlag(c.abbr)} ${c.abbr}`:'TBD';
+      const sc=done?` <span style="font-family:var(--mono);font-weight:700">${c.score??''}</span>`:'';
+      const win=done&&c.winner?'font-weight:800':(c.abbr?'':'');
+      const foc=wcIsFocus(c.abbr)?';color:var(--navy);font-weight:800':'';
+      return `<div class="team${c.abbr?'':' tbd'}" style="${win}${foc}">${nm}${sc}</div>`;
+    };
+    const koFocus=wcIsFocus(m.home.abbr)||wcIsFocus(m.away.abbr);
+    return `<div class="wc-ko-match"${koFocus?' style="outline:2px solid var(--navy);outline-offset:-1px"':''}>${team(m.home)}
+      <div style="font-family:var(--mono);font-size:8px;color:var(--faint);text-align:center;padding:2px 0">${m.state==='in'?'<span style="color:var(--red)">live</span>':'vs'}</div>
+      ${team(m.away)}</div>`;
+  };
+
+  // Every round stretches to the first round's height and spaces its matches
+  // evenly, so each match lines up halfway between its two feeder matches.
+  html+=`<div class="wc-ko-bracket">`;
+  for(const s of funnel){
+    html+=`<div class="wc-ko-round"><div class="ko-stage-hdr">${WC_ROUND_LABEL[s]||s}</div>
+      <div class="wc-ko-matches">${byStage[s].map(koMatch).join('')}</div></div>`;
+  }
+  html+='</div>';
+  if(byStage['3RD'].length){
+    html+=`<div class="wc-ko-round" style="margin-top:14px;max-width:200px"><div class="ko-stage-hdr">${WC_ROUND_LABEL['3RD']||'Third place'}</div>
+      ${byStage['3RD'].map(koMatch).join('')}</div>`;
+  }
+  return html;
 }
 
 // ════════════════════════════════════════
