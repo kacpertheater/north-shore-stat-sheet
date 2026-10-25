@@ -2,7 +2,7 @@
 //  THE VAULT — Historical Season Results
 // ════════════════════════════════════════
 
-// ── Static curated data for NBA/NFL (NBA through 2025-26, NFL through 2024) ─
+// ── Static curated data for NBA/NFL (NBA through 2025-26, NFL through 2025) ─
 // Format: year → { w, l, t(ties/OT losses), pf, pa, playoff }
 // playoff: null = missed, or { result:'champ'|'conf'|'semi'|'round1'|'miss', round, opp }
 const STATIC_DATA = {
@@ -79,10 +79,10 @@ const STATIC_DATA = {
     1957: { w:44, l:28, pf:107.0, pa:105.0, playoff:{ result:'champ', round:'NBA Finals', opp:'St. Louis Hawks', detail:'Won 4–3' } },
   },
   'nfl|ne': {
-    2025: { w:14, l:3, pf:407, pa:249, playoff:{ result:'conf', round:'Super Bowl LX', opp:'Seattle Seahawks', detail:'13–29' } },
-    2024: { w:4, l:13, pf:215, pa:366, playoff:null },
+    2025: { w:14, l:3, pf:490, pa:320, playoff:{ result:'conf', round:'Super Bowl LX', opp:'Seattle Seahawks', detail:'Lost 13–29' } },
+    2024: { w:4, l:13, pf:289, pa:417, playoff:null },
     2023: { w:4, l:13, pf:236, pa:366, playoff:null },
-    2022: { w:8, l:9, pf:364, pa:374, playoff:null },
+    2022: { w:8, l:9, pf:364, pa:347, playoff:null },
     2021: { w:10, l:7, pf:462, pa:303, playoff:{ result:'round1', round:'Wild Card', opp:'Buffalo Bills', detail:'Lost 17–47' } },
     2020: { w:7, l:9, pf:326, pa:353, playoff:null },
     2019: { w:12, l:4, pf:420, pa:225, playoff:{ result:'round1', round:'Wild Card', opp:'Tennessee Titans', detail:'Lost 13–20' } },
